@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ChatMessage, ExtractedDocument, AppSettings } from '../lib/types';
-import { streamChat } from '../lib/claude';
+import { streamChat } from '../lib/gemini';
 import { chunkDocument } from '../lib/chunker';
 
 export function useChat(document: ExtractedDocument | null, settings: AppSettings | null) {

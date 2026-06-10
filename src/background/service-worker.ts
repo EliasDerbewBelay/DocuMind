@@ -104,6 +104,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+
+  if (message.type === 'FETCH_FILE_BUFFER') {
+    fetch(message.url as string)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.arrayBuffer();
+      })
+      .then((buffer) => sendResponse({ buffer }))
+      .catch(() => sendResponse({ error: true }));
+    return true;
+  }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {

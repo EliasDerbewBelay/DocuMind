@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { DocumentSummary, ExtractedDocument } from '../lib/types';
-import { generateSummary } from '../lib/claude';
+import { generateSummary } from '../lib/gemini';
 import { chunkDocument } from '../lib/chunker';
 
 export function useSummary() {

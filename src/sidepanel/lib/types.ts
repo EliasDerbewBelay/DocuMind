@@ -1,7 +1,16 @@
-export type DocumentType = 'pdf' | 'html' | 'google-doc' | 'word' | 'unknown';
+export type DocumentSource = 'tab' | 'disk';
+
+export type DocumentType =
+  | 'pdf'
+  | 'html'
+  | 'google-doc'
+  | 'word'
+  | 'text'
+  | 'unknown';
 
 export interface ExtractedDocument {
   type: DocumentType;
+  source: DocumentSource;
   title: string;
   url: string;
   rawText: string;
@@ -9,6 +18,8 @@ export interface ExtractedDocument {
   wordCount: number;
   language: string;
   extractedAt: number;
+  fileName?: string;
+  fileSize?: number;
 }
 
 export interface DocumentSummary {

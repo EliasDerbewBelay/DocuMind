@@ -6,7 +6,7 @@ const BOOKMARKS_KEY = 'documind_bookmarks';
 const defaultSettings: AppSettings = {
   apiKey: '',
   language: 'en',
-  autoSummarize: true,
+  autoSummarize: false,
   highlightEnabled: true,
 };
 

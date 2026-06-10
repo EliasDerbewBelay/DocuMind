@@ -9,9 +9,14 @@ async function extractDocumentText(
   type: DocumentType
 ): Promise<{ rawText: string; pageCount?: number }> {
   if (type === 'pdf') {
-    const { extractPDFText } = await import('./pdf-extractor');
-    const result = await extractPDFText(window.location.href);
-    return { rawText: result.text, pageCount: result.pageCount };
+    try {
+      const { extractPDFText } = await import('./pdf-extractor');
+      const result = await extractPDFText(window.location.href);
+      return { rawText: result.text, pageCount: result.pageCount };
+    } catch (err) {
+      console.warn('DocuMind: PDF extraction failed', err);
+      return { rawText: '' };
+    }
   }
 
   if (type === 'google-doc') {
@@ -28,6 +33,19 @@ async function extractDocumentText(
   return { rawText: extractHTMLText() };
 }
 
+function getDocumentTitle(): string {
+  if (window.location.protocol === 'file:') {
+    const path = decodeURIComponent(window.location.pathname);
+    const fileName = path.split(/[/\\]/).pop() || '';
+    return fileName.replace(/\.[^.]+$/, '') || fileName || 'Untitled Document';
+  }
+  return (
+    document.querySelector('.docs-title-input')?.textContent?.trim() ||
+    document.title.replace(/ - Google Docs$/, '').trim() ||
+    'Untitled Document'
+  );
+}
+
 async function extractAndSend() {
   const type = detectDocumentType();
   if (type === 'unknown') return null;
@@ -36,13 +54,11 @@ async function extractAndSend() {
   if (!rawText || rawText.length < 100) return null;
 
   const wordCount = rawText.split(/\s+/).filter(Boolean).length;
-  const title =
-    document.querySelector('.docs-title-input')?.textContent?.trim() ||
-    document.title.replace(/ - Google Docs$/, '').trim() ||
-    'Untitled Document';
+  const title = getDocumentTitle();
 
   const payload = {
     type,
+    source: 'tab' as const,
     title,
     url: window.location.href,
     rawText,

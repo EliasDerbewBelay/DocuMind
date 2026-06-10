@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Settings } from 'lucide-react';
+import { Settings, FolderOpen } from 'lucide-react';
 import type { ExtractedDocument } from '../lib/types';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   activeTab: 'summary' | 'chat' | 'bookmarks';
   onTabChange: (tab: 'summary' | 'chat' | 'bookmarks') => void;
   onOpenSettings: () => void;
+  onOpenFilePicker: () => void;
 }
 
 const tabs = [
@@ -20,6 +21,7 @@ export default function Header({
   activeTab,
   onTabChange,
   onOpenSettings,
+  onOpenFilePicker,
 }: HeaderProps) {
   return (
     <header className="flex-shrink-0 bg-brand-dark border-b border-white/[0.06] px-3 py-2">
@@ -30,17 +32,29 @@ export default function Header({
           </div>
           <span className="text-sm font-medium text-text-primary truncate">DocuMind</span>
         </div>
-        <button
-          onClick={onOpenSettings}
-          className="p-1.5 text-text-muted hover:text-white transition-colors rounded-lg hover:bg-white/[0.04]"
-          aria-label="Settings"
-        >
-          <Settings size={16} />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={onOpenFilePicker}
+            className="p-1.5 text-text-muted hover:text-white transition-colors rounded-lg hover:bg-white/[0.04]"
+            aria-label="Open file from computer"
+            title="Open file from computer"
+          >
+            <FolderOpen size={16} />
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="p-1.5 text-text-muted hover:text-white transition-colors rounded-lg hover:bg-white/[0.04]"
+            aria-label="Settings"
+          >
+            <Settings size={16} />
+          </button>
+        </div>
       </div>
 
       <p className="text-[10px] text-text-muted truncate mb-2" title={document.title}>
-        {document.title}
+        {document.source === 'disk' && document.fileName
+          ? `${document.title} (local file)`
+          : document.title}
       </p>
 
       <nav className="flex gap-1 relative">

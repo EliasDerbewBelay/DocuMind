@@ -17,5 +17,5 @@
     "noFallthroughCasesInSwitch": true,
     "types": ["chrome"]
   },
-  "include": ["src", "public"]
+  "include": ["src", "public", "src/shared"]
 }

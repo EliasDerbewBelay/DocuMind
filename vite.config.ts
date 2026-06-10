@@ -11,7 +11,10 @@ function stripImportMeta(): Plugin {
       const isContentChunk =
         chunk.fileName.includes('index.ts') ||
         chunk.fileName.includes('pdf-extractor') ||
-        chunk.moduleIds.some((id) => id.includes('/src/content/'));
+        chunk.fileName.includes('pdf-parser') ||
+        chunk.moduleIds.some(
+          (id) => id.includes('/src/content/') || id.includes('/src/shared/')
+        );
 
       if (!isContentChunk) return null;
 

@@ -4,54 +4,94 @@ import type { ExtractedDocument, AppView, AppSettings } from './lib/types';
 import { getSettings } from './lib/storage';
 import { useSummary } from './hooks/useSummary';
 import { useChat } from './hooks/useChat';
+import { useFileUpload } from './hooks/useFileUpload';
 import LoadingScreen from './components/LoadingScreen';
 import EmptyState from './components/EmptyState';
 import Header from './components/Header';
-import SummaryCard from './components/SummaryCard';
-import StatsBar from './components/StatsBar';
+import SummaryPanel from './components/SummaryPanel';
 import ChatThread from './components/ChatThread';
 import ChatInput from './components/ChatInput';
 import BookmarkPanel from './components/BookmarkPanel';
 import SettingsPanel from './components/SettingsPanel';
+import FileDropZone from './components/FileDropZone';
 
 export default function App() {
   const [view, setView] = useState<AppView>('empty');
   const [document, setDocument] = useState<ExtractedDocument | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
-  const [activeTab, setActiveTab] = useState<'summary' | 'chat' | 'bookmarks'>('summary');
-  const { summary, generate, reset: resetSummary } = useSummary();
+  const [activeTab, setActiveTab] = useState<'summary' | 'chat' | 'bookmarks'>('chat');
+  const [loadingTitle, setLoadingTitle] = useState<string | undefined>();
+  const [isScanning, setIsScanning] = useState(false);
+  const { summary, isLoading: isSummaryLoading, error: summaryError, generate, reset: resetSummary } =
+    useSummary();
   const { messages, isLoading, sendMessage, setMessages } = useChat(document, settings);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  const [isScanning, setIsScanning] = useState(false);
+  const openDocumentView = useCallback((doc: ExtractedDocument) => {
+    setDocument(doc);
+    setMessages([]);
+    resetSummary();
+    setActiveTab('chat');
+    setView('chat');
+  }, [resetSummary, setMessages]);
 
   const handleDocumentReady = useCallback(
     async (doc: ExtractedDocument) => {
-      setDocument(doc);
-      setMessages([]);
-      resetSummary();
-      setActiveTab('summary');
-
       const s = settingsRef.current ?? (await getSettings());
       if (!settingsRef.current) setSettings(s);
 
       if (!s.apiKey) {
+        setDocument(doc);
         setView('settings');
         return;
       }
 
-      if (!s.autoSummarize) {
-        setView('chat');
+      if (s.autoSummarize) {
+        setDocument(doc);
+        setMessages([]);
+        resetSummary();
+        setActiveTab('summary');
+        setLoadingTitle(doc.title);
+        setView('loading');
+        const result = await generate(doc, s.apiKey);
+        setView(result ? 'summary' : 'chat');
+        if (!result) setActiveTab('chat');
         return;
       }
 
-      setView('loading');
-      const result = await generate(doc, s.apiKey);
-      setView(result ? 'summary' : 'chat');
+      openDocumentView(doc);
     },
-    [generate, resetSummary, setMessages]
+    [generate, resetSummary, setMessages, openDocumentView]
   );
+
+  const handleGenerateSummary = useCallback(async () => {
+    if (!document || !settings?.apiKey || isSummaryLoading) return;
+    setLoadingTitle(document.title);
+    setView('loading');
+    const result = await generate(document, settings.apiKey);
+    setActiveTab('summary');
+    setView(result ? 'summary' : 'chat');
+  }, [document, settings?.apiKey, isSummaryLoading, generate]);
+
+  const {
+    isReading: isReadingFile,
+    error: fileError,
+    fileInputRef,
+    openFilePicker,
+    handleInputChange,
+    handleDrop,
+    handleDragOver,
+    clearError,
+  } = useFileUpload({
+    onDocumentReady: handleDocumentReady,
+    onReadingStart: (fileName) => {
+      setLoadingTitle(fileName.replace(/\.[^.]+$/, '') || fileName);
+      setView('loading');
+      clearError();
+    },
+    onError: () => setView('empty'),
+  });
 
   const requestDocument = useCallback(
     (forceExtract = false) => {
@@ -61,7 +101,7 @@ export default function App() {
         setIsScanning(false);
         if (doc) {
           handleDocumentReady(doc);
-        } else {
+        } else if (!isReadingFile) {
           setView('empty');
         }
       };
@@ -83,7 +123,7 @@ export default function App() {
         }
       });
     },
-    [handleDocumentReady]
+    [handleDocumentReady, isReadingFile]
   );
 
   useEffect(() => {
@@ -91,7 +131,9 @@ export default function App() {
     requestDocument();
 
     const listener = (msg: { type: string; payload: ExtractedDocument }) => {
-      if (msg.type === 'DOCUMENT_READY') handleDocumentReady(msg.payload);
+      if (msg.type === 'DOCUMENT_READY' && msg.payload.source === 'tab') {
+        handleDocumentReady(msg.payload);
+      }
     };
 
     chrome.runtime.onMessage.addListener(listener);
@@ -100,26 +142,61 @@ export default function App() {
 
   const handleSettingsSave = (s: AppSettings) => {
     setSettings(s);
-    if (document) {
-      handleDocumentReady(document);
-    } else {
+    if (document && s.apiKey) {
+      setView('chat');
+      setActiveTab('chat');
+    } else if (!document && s.apiKey) {
+      setView('empty');
       requestDocument(true);
+    } else if (!s.apiKey) {
+      setView('empty');
     }
   };
 
+  const showAiLoading = view === 'loading' && isSummaryLoading;
+
   return (
-    <div className="flex flex-col h-screen bg-brand-dark text-white overflow-hidden">
+    <div
+      className="flex flex-col h-screen bg-brand-dark text-white overflow-hidden"
+      onDrop={view === 'empty' ? undefined : handleDrop}
+      onDragOver={view === 'empty' ? undefined : handleDragOver}
+    >
+      <FileDropZone
+        fileInputRef={fileInputRef}
+        onInputChange={handleInputChange}
+        onOpenPicker={openFilePicker}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        compact
+      />
+
       <AnimatePresence mode="wait">
-        {view === 'loading' && (
-          <LoadingScreen key="loading" documentTitle={document?.title} />
+        {showAiLoading && (
+          <LoadingScreen
+            key="loading"
+            documentTitle={loadingTitle ?? document?.title}
+          />
+        )}
+        {(view === 'loading' && isReadingFile) && (
+          <LoadingScreen
+            key="file-loading"
+            documentTitle={loadingTitle}
+          />
         )}
         {view === 'empty' && (
           <EmptyState
             key="empty"
             hasApiKey={!!settings?.apiKey}
             isScanning={isScanning}
+            isReadingFile={isReadingFile}
+            fileError={fileError}
+            fileInputRef={fileInputRef}
             onOpenSettings={() => setView('settings')}
             onRescan={() => requestDocument(true)}
+            onOpenFilePicker={openFilePicker}
+            onFileInputChange={handleInputChange}
+            onFileDrop={handleDrop}
+            onFileDragOver={handleDragOver}
           />
         )}
         {(view === 'summary' || view === 'chat') && document && (
@@ -135,18 +212,18 @@ export default function App() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onOpenSettings={() => setView('settings')}
+              onOpenFilePicker={openFilePicker}
             />
             <div className="flex-1 overflow-hidden flex flex-col">
               {activeTab === 'summary' && (
-                <div className="flex-1 overflow-y-auto p-3 space-y-3">
-                  <StatsBar document={document} summary={summary} />
-                  {summary && (
-                    <SummaryCard
-                      summary={summary}
-                      onAskMore={() => setActiveTab('chat')}
-                    />
-                  )}
-                </div>
+                <SummaryPanel
+                  document={document}
+                  summary={summary}
+                  isGenerating={isSummaryLoading}
+                  error={summaryError}
+                  onGenerate={handleGenerateSummary}
+                  onAskMore={() => setActiveTab('chat')}
+                />
               )}
               {activeTab === 'chat' && (
                 <>
@@ -172,7 +249,14 @@ export default function App() {
           <SettingsPanel
             key="settings"
             onSave={handleSettingsSave}
-            onBack={() => setView(document ? 'summary' : 'empty')}
+            onBack={() => {
+              if (document) {
+                setView('chat');
+                setActiveTab('chat');
+              } else {
+                setView('empty');
+              }
+            }}
           />
         )}
       </AnimatePresence>

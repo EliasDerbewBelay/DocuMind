@@ -25,6 +25,7 @@ function getExampleQuestions(document: ExtractedDocument): string[] {
         'Summarize the main points',
       ];
     case 'html':
+    case 'text':
     default:
       return [
         'What is this article about?',

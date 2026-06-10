@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DocuMind — AI Document Reader",
   "version": "1.0.0",
-  "description": "Chat with any document open in Chrome. Powered by Claude AI.",
+  "description": "Chat with any document open in Chrome. Powered by Google Gemini.",
   "permissions": [
     "activeTab",
     "storage",
@@ -12,7 +12,8 @@
   ],
   "host_permissions": [
     "<all_urls>",
-    "https://api.anthropic.com/*"
+    "file:///*",
+    "https://generativelanguage.googleapis.com/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.ts",
@@ -20,7 +21,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["<all_urls>", "file:///*"],
       "exclude_matches": [
         "https://accounts.google.com/*",
         "https://login.microsoftonline.com/*",
@@ -49,7 +50,7 @@
   "web_accessible_resources": [
     {
       "resources": ["pdf.worker.min.js"],
-      "matches": ["<all_urls>"]
+      "matches": ["<all_urls>", "file:///*"]
     }
   ]
 }
